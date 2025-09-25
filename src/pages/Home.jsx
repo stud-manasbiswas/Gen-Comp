@@ -8,13 +8,13 @@ import { IoCloseSharp, IoCopy } from 'react-icons/io5';
 import { PiExportBold } from 'react-icons/pi';
 import { ImNewTab } from 'react-icons/im';
 import { FiRefreshCcw } from 'react-icons/fi';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ClipLoader } from 'react-spinners';
 import { toast } from 'react-toastify';
 
 const Home = () => {
 
-  // ✅ Fixed typos in options
+  
   const options = [
     { value: 'html-css', label: 'HTML + CSS' },
     { value: 'html-tailwind', label: 'HTML + Tailwind CSS' },
@@ -32,51 +32,72 @@ const Home = () => {
   const [isNewTabOpen, setIsNewTabOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // ✅ Extract code safely
   function extractCode(response) {
     const match = response.match(/```(?:\w+)?\n?([\s\S]*?)```/);
     return match ? match[1].trim() : response.trim();
   }
 
-  // ⚠️ API Key (you said you want it inside the file)
-  const ai = new GoogleGenAI({
-    apiKey: "YOUR_API_KEY"
-  });
-
   // ✅ Generate code
   async function getResponse() {
     if (!prompt.trim()) return toast.error("Please describe your component first");
 
+    // Check if API key exists at the time of function call
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      return toast.error("Gemini API key is missing. Please check your .env file.");
+    }
+
     try {
       setLoading(true);
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: `
-     You are an experienced programmer with expertise in web development and UI/UX design. You create modern, animated, and fully responsive UI components. You are highly skilled in HTML, CSS, Tailwind CSS, Bootstrap, JavaScript, React, Next.js, Vue.js, Angular, and more.
+      
+      // Initialize the AI inside the function to avoid browser issues
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      
+      const result = await model.generateContent(`
+        You are an experienced programmer with expertise in web development and UI/UX design. You create modern, animated, and fully responsive UI components. You are highly skilled in HTML, CSS, Tailwind CSS, Bootstrap, JavaScript, React, Next.js, Vue.js, Angular, and more.
 
-Now, generate a UI component for: ${prompt}  
-Framework to use: ${frameWork.value}  
+        Now, generate a UI component for: ${prompt}  
+        Framework to use: ${frameWork.value}  
 
-Requirements:  
-- The code must be clean, well-structured, and easy to understand.  
-- Optimize for SEO where applicable.  
-- Focus on creating a modern, animated, and responsive UI design.  
-- Include high-quality hover effects, shadows, animations, colors, and typography.  
-- Return ONLY the code, formatted properly in **Markdown fenced code blocks**.  
-- Do NOT include explanations, text, comments, or anything else besides the code.  
-- And give the whole code in a single HTML file.
-      `,
-      });
+        Requirements:  
+        - The code must be clean, well-structured, and easy to understand.  
+        - Optimize for SEO where applicable.  
+        - Focus on creating a modern, animated, and responsive UI design.  
+        - Include high-quality hover effects, shadows, animations, colors, and typography.  
+        - Return ONLY the code, formatted properly in **Markdown fenced code blocks**.  
+        - Do NOT include explanations, text, comments, or anything else besides the code.  
+        - And give the whole code in a single HTML file.
+      `);
 
-      setCode(extractCode(response.text));
-      setOutputScreen(true);
+      const response = await result.response;
+      const generatedCode = extractCode(response.text());
+      
+      if (generatedCode) {
+        setCode(generatedCode);
+        setOutputScreen(true);
+        toast.success("Code generated successfully!");
+      } else {
+        toast.error("Failed to generate code. Please try again.");
+      }
+
     } catch (error) {
-      console.error(error);
-      toast.error("Something went wrong while generating code");
+      console.error('Gemini API Error:', error);
+      
+      // More specific error handling
+      if (error.message?.includes('API_KEY_INVALID')) {
+        toast.error("Invalid API key. Please check your Gemini API key.");
+      } else if (error.message?.includes('QUOTA_EXCEEDED')) {
+        toast.error("API quota exceeded. Please try again later.");
+      } else if (error.message?.includes('SAFETY')) {
+        toast.error("Request blocked by safety filters. Please modify your prompt.");
+      } else {
+        toast.error("Something went wrong while generating code. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   // ✅ Copy Code
   const copyCode = async () => {
@@ -95,14 +116,14 @@ Requirements:
     if (!code.trim()) return toast.error("No code to download");
 
     const fileName = "GenUI-Code.html"
-    const blob = new Blob([code], { type: 'text/plain' });
+    const blob = new Blob([code], { type: 'text/html' });
     let url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success("File downloaded");
+    toast.success("File downloaded successfully!");
   };
 
   return (
@@ -161,13 +182,19 @@ Requirements:
           ></textarea>
 
           <div className="flex items-center justify-between mt-3">
-            <p className='text-gray-400 text-sm'>Click on generate button to get your code</p>
+            <p className='text-gray-400 text-sm'>
+              {!import.meta.env.VITE_GEMINI_API_KEY ? 
+                "⚠️ API key missing - check .env file" : 
+                "Click on generate button to get your code"
+              }
+            </p>
             <button
               onClick={getResponse}
-              className="flex items-center p-3 rounded-lg border-0 bg-gradient-to-r from-purple-400 to-purple-600 px-5 gap-2 transition-all hover:opacity-80 hover:scale-105 active:scale-95"
+              disabled={loading || !import.meta.env.VITE_GEMINI_API_KEY}
+              className="flex items-center p-3 rounded-lg border-0 bg-gradient-to-r from-purple-400 to-purple-600 px-5 gap-2 transition-all hover:opacity-80 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <ClipLoader color='white' size={18} /> : <BsStars />}
-              Generate
+              {loading ? "Generating..." : "Generate"}
             </button>
           </div>
         </div>
@@ -206,13 +233,37 @@ Requirements:
                   <div className="flex items-center gap-2">
                     {tab === 1 ? (
                       <>
-                        <button onClick={copyCode} className="w-10 h-10 rounded-xl border border-zinc-800 flex items-center justify-center hover:bg-[#333]"><IoCopy /></button>
-                        <button onClick={downnloadFile} className="w-10 h-10 rounded-xl border border-zinc-800 flex items-center justify-center hover:bg-[#333]"><PiExportBold /></button>
+                        <button 
+                          onClick={copyCode} 
+                          className="w-10 h-10 rounded-xl border border-zinc-800 flex items-center justify-center hover:bg-[#333] transition-colors"
+                          title="Copy code"
+                        >
+                          <IoCopy />
+                        </button>
+                        <button 
+                          onClick={downnloadFile} 
+                          className="w-10 h-10 rounded-xl border border-zinc-800 flex items-center justify-center hover:bg-[#333] transition-colors"
+                          title="Download file"
+                        >
+                          <PiExportBold />
+                        </button>
                       </>
                     ) : (
                       <>
-                        <button onClick={() => setIsNewTabOpen(true)} className="w-10 h-10 rounded-xl border border-zinc-800 flex items-center justify-center hover:bg-[#333]"><ImNewTab /></button>
-                        <button onClick={() => setRefreshKey(prev => prev + 1)} className="w-10 h-10 rounded-xl border border-zinc-800 flex items-center justify-center hover:bg-[#333]"><FiRefreshCcw /></button>
+                        <button 
+                          onClick={() => setIsNewTabOpen(true)} 
+                          className="w-10 h-10 rounded-xl border border-zinc-800 flex items-center justify-center hover:bg-[#333] transition-colors"
+                          title="Open fullscreen"
+                        >
+                          <ImNewTab />
+                        </button>
+                        <button 
+                          onClick={() => setRefreshKey(prev => prev + 1)} 
+                          className="w-10 h-10 rounded-xl border border-zinc-800 flex items-center justify-center hover:bg-[#333] transition-colors"
+                          title="Refresh preview"
+                        >
+                          <FiRefreshCcw />
+                        </button>
                       </>
                     )}
                   </div>
@@ -221,9 +272,26 @@ Requirements:
                 {/* Editor / Preview */}
                 <div className="h-full">
                   {tab === 1 ? (
-                    <Editor value={code} height="100%" theme='vs-dark' language="html" />
+                    <Editor 
+                      value={code} 
+                      height="100%" 
+                      theme='vs-dark' 
+                      language="html"
+                      options={{
+                        fontSize: 14,
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                        wordWrap: 'on'
+                      }}
+                    />
                   ) : (
-                    <iframe key={refreshKey} srcDoc={code} className="w-full h-full bg-white text-black"></iframe>
+                    <iframe 
+                      key={refreshKey} 
+                      srcDoc={code} 
+                      className="w-full h-full bg-white text-black"
+                      title="Component Preview"
+                    />
                   )}
                 </div>
               </>
@@ -234,14 +302,22 @@ Requirements:
 
       {/* ✅ Fullscreen Preview Overlay */}
       {isNewTabOpen && (
-        <div className="absolute inset-0 bg-white w-screen h-screen overflow-auto">
-          <div className="text-black w-full h-[60px] flex items-center justify-between px-5 bg-gray-100">
-            <p className='font-bold'>Preview</p>
-            <button onClick={() => setIsNewTabOpen(false)} className="w-10 h-10 rounded-xl border border-zinc-300 flex items-center justify-center hover:bg-gray-200">
+        <div className="fixed inset-0 bg-white w-screen h-screen overflow-auto z-50">
+          <div className="text-black w-full h-[60px] flex items-center justify-between px-5 bg-gray-100 border-b">
+            <p className='font-bold'>Preview - Fullscreen</p>
+            <button 
+              onClick={() => setIsNewTabOpen(false)} 
+              className="w-10 h-10 rounded-xl border border-zinc-300 flex items-center justify-center hover:bg-gray-200 transition-colors"
+              title="Close fullscreen"
+            >
               <IoCloseSharp />
             </button>
           </div>
-          <iframe srcDoc={code} className="w-full h-[calc(100vh-60px)]"></iframe>
+          <iframe 
+            srcDoc={code} 
+            className="w-full h-[calc(100vh-60px)]"
+            title="Component Preview Fullscreen"
+          />
         </div>
       )}
     </>

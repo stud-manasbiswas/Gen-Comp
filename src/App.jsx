@@ -1,19 +1,77 @@
-import React from 'react'
-import "./App.css"
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import NoPage from './pages/NoPage';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { 
+  SignedIn, 
+  SignedOut, 
+  RedirectToSignIn,
+  useAuth
+} from '@clerk/clerk-react'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import Home from './pages/Home'
+import SignInPage from './pages/SignInPage'
+import SignUpPage from './pages/SignUpPage'
+import LoadingSpinner from './components/LoadingSpinner'
 
-const App = () => {
+function App() {
+  const { isLoaded } = useAuth()
+
+  // Show loading while Clerk is initializing
+  if (!isLoaded) {
+    return <LoadingSpinner />
+  }
+
   return (
-    <>
-      <BrowserRouter>
+    <Router>
+      <div className="min-h-screen bg-[#0A0A0A] text-white">
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="*" element={<NoPage />} />
+          {/* Public Routes */}
+          <Route 
+            path="/sign-in/*" 
+            element={
+              <SignedOut>
+                <SignInPage />
+              </SignedOut>
+            } 
+          />
+          <Route 
+            path="/sign-up/*" 
+            element={
+              <SignedOut>
+                <SignUpPage />
+              </SignedOut>
+            } 
+          />
+          
+          {/* Protected Routes */}
+          <Route 
+            path="/" 
+            element={
+              <>
+                <SignedIn>
+                  <Home />
+                </SignedIn>
+                <SignedOut>
+                  <RedirectToSignIn />
+                </SignedOut>
+              </>
+            } 
+          />
         </Routes>
-      </BrowserRouter>
-    </>
+        
+        <ToastContainer
+          position="bottom-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="dark"
+        />
+      </div>
+    </Router>
   )
 }
 
