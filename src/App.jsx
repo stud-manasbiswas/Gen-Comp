@@ -1,23 +1,23 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import {
-  SignedIn,
-  SignedOut,
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { 
+  SignedIn, 
+  SignedOut, 
   RedirectToSignIn,
-  useAuth,
-} from "@clerk/clerk-react";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import Home from "./pages/Home";
-import SignInPage from "./pages/SignInPage";
-import SignUpPage from "./pages/SignUpPage";
-import LoadingSpinner from "./components/LoadingSpinner";
+  useAuth
+} from '@clerk/clerk-react'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import Home from './pages/Home'
+import SignInPage from './pages/SignInPage'
+import SignUpPage from './pages/SignUpPage'
+import LoadingSpinner from './components/LoadingSpinner'
 
 function App() {
-  const { isLoaded } = useAuth();
+  const { isLoaded } = useAuth()
 
-  // Show loading while Clerk initializes
+  // Show loading while Clerk is initializing
   if (!isLoaded) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner />
   }
 
   return (
@@ -25,49 +25,39 @@ function App() {
       <div className="min-h-screen bg-[#0A0A0A] text-white">
         <Routes>
           {/* Public Routes */}
-          <Route
-            path="/sign-in/*"
+          <Route 
+            path="/sign-in/*" 
             element={
               <SignedOut>
                 <SignInPage />
               </SignedOut>
-            }
+            } 
           />
-          <Route
-            path="/sign-up/*"
+          <Route 
+            path="/sign-up/*" 
             element={
               <SignedOut>
                 <SignUpPage />
               </SignedOut>
-            }
+            } 
           />
-
+          
           {/* Protected Routes */}
-          <Route
-            path="/"
-            element={
-              <SignedIn>
-                <Home />
-              </SignedIn>
-            }
-          />
-
-          {/* Catch-all for unauthorized users */}
-          <Route
-            path="*"
+          <Route 
+            path="/" 
             element={
               <>
-                <SignedOut>
-                  <RedirectToSignIn />
-                </SignedOut>
                 <SignedIn>
                   <Home />
                 </SignedIn>
+                <SignedOut>
+                  <RedirectToSignIn />
+                </SignedOut>
               </>
-            }
+            } 
           />
         </Routes>
-
+        
         <ToastContainer
           position="bottom-right"
           autoClose={3000}
@@ -82,7 +72,7 @@ function App() {
         />
       </div>
     </Router>
-  );
+  )
 }
 
-export default App;
+export default App
